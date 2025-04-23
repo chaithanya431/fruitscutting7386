@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit Ninja Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+            font-family: Arial, sans-serif;
+            user-select: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .fruit {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="red" stroke-width="2" d="M0,24 L24,0 M0,0 L24,24"/></svg>'), auto;
+        }
+        
+        .sliced {
+            animation: fadeOut 0.5s forwards;
+            transform: scale(1.2);
+        }
+        
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 36px;
+            display: none;
+            z-index: 200;
+        }
+        
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #restart-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-display">Score: 0</div>
+        <div id="game-over">
+            <h1>Game Over!</h1>
+            <p>Your final score: <span id="final-score">0</span></p>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        let score = 0;
+        let gameActive = true;
+        let fruits = [];
+        const fruitTypes = ['apple', 'banana', 'orange', 'watermelon', 'strawberry'];
+        const fruitImages = {
+            apple: 'https://cdn-icons-png.flaticon.com/512/415/415733.png',
+            banana: 'https://cdn-icons-png.flaticon.com/512/2909/2909761.png',
+            orange: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
+            watermelon: 'https://cdn-icons-png.flaticon.com/512/3163/3163475.png',
+            strawberry: 'https://cdn-icons-png.flaticon.com/512/616/616408.png'
+        };
+        
+        // Game settings
+        const settings = {
+            spawnRate: 1000, // ms
+            gameDuration: 30000, // 30 seconds
+            minSpeed: 2,
+            maxSpeed: 5
+        };
+        
+        // Start game
+        function startGame() {
+            score = 0;
+            gameActive = true;
+            updateScore();
+            gameOverScreen.style.display = 'none';
+            
+            // Clear existing fruits
+            fruits.forEach(fruit => {
+                if (fruit.element && fruit.element.parentNode) {
+                    fruit.element.remove();
+                }
+            });
+            fruits = [];
+            
+            // Spawn fruits
+            const spawnInterval = setInterval(spawnFruit, settings.spawnRate);
+            
+            // End game after duration
+            setTimeout(() => {
+                clearInterval(spawnInterval);
+                endGame();
+            }, settings.gameDuration);
+        }
+        
+        // Spawn a new fruit
+        function spawnFruit() {
+            if (!gameActive) return;
+            
+            const fruitType = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+            const fruit = document.createElement('div');
+            fruit.className = 'fruit';
+            fruit.style.backgroundImage = `url(${fruitImages[fruitType]})`;
+            
+            // Random position at bottom
+            const xPos = Math.random() * (window.innerWidth - 60);
+            fruit.style.left = `${xPos}px`;
+            fruit.style.bottom = '-60px';
+            
+            gameContainer.appendChild(fruit);
+            
+            // Random speed
+            const speed = Math.random() * (settings.maxSpeed - settings.minSpeed) + settings.minSpeed;
+            
+            const fruitObj = {
+                element: fruit,
+                speed: speed,
+                sliced: false
+            };
+            
+            fruits.push(fruitObj);
+            
+            // Animate fruit movement
+            function moveFruit() {
+                if (fruitObj.sliced || !gameActive) return;
+                
+                const currentBottom = parseFloat(fruit.style.bottom);
+                const newBottom = currentBottom + speed;
+                
+                if (newBottom > window.innerHeight) {
+                    // Fruit missed
+                    fruit.remove();
+                    fruits = fruits.filter(f => f !== fruitObj);
+                    return;
+                }
+                
+                fruit.style.bottom = `${newBottom}px`;
+                requestAnimationFrame(moveFruit);
+            }
+            
+            moveFruit();
+            
+            // Slice fruit on mouseover
+            fruit.addEventListener('mouseover', () => {
+                if (fruitObj.sliced || !gameActive) return;
+                
+                fruitObj.sliced = true;
+                fruit.classList.add('sliced');
+                score += 10;
+                updateScore();
+                
+                // Remove fruit after animation
+                setTimeout(() => {
+                    fruit.remove();
+                    fruits = fruits.filter(f => f !== fruitObj);
+                }, 500);
+            });
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+        
+        // End game
+        function endGame() {
+            gameActive = false;
+            finalScoreDisplay.textContent = score;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Event listeners
+        restartBtn.addEventListener('click', startGame);
+        
+        // Start game on page load
+        window.addEventListener('load', startGame);
+    </script>
+</body>
+</html>
